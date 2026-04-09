@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat App with Delete</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+  body{ font-family: Arial; margin: 20px;}
+  input, button{ padding: 8px; margin: 5px 0;}
+  #messages{ border:1px solid #ccc; padding:10px; height:300px; overflow-y:auto;}
+  .msg{ padding:5px; border-bottom:1px solid #eee;}
+  .deleteBtn{ color:red; cursor:pointer; margin-left:10px;}
+  #status{ margin-bottom:10px; font-weight:bold;}
+</style>
+</head>
+<body>
+
+<h2>Login / Register</h2>
+<input type="email" id="email" placeholder="Email">
+<input type="password" id="password" placeholder="Password">
+<button id="registerBtn">Register</button>
+<button id="loginBtn">Login</button>
+<p id="status"></p>
+
+<hr>
+
+<h3>Chat</h3>
+<div id="messages"></div>
+<input type="text" id="msgInput" placeholder="Type a message">
+<button id="sendBtn">Send</button>
+
+<script>
+  // 🔹 Firebase Config
+  const firebaseConfig = {
+    apiKey: "AIzaSyCLWXpSE2ZB8WTVakqp7eO3G1bLdz_P15w",
+    authDomain: "mini-90221.firebaseapp.com",
+    databaseURL: "https://mini-90221-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "mini-90221",
+    storageBucket: "mini-90221.appspot.com",
+    messagingSenderId: "333962320072",
+    appId: "1:333962320072:web:8f26318d530c9135b9edfd"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.database();
+
+  const email = document.getElementById('email');
+  const password = document.getElementById('password');
+  const registerBtn = document.getElementById('registerBtn');
+  const loginBtn = document.getElementById('loginBtn');
+  const status = document.getElementById('status');
+
+  const msgInput = document.getElementById('msgInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const messagesDiv = document.getElementById('messages');
+
+  let currentUser = null;
+
+  // 🔹 Register
+  registerBtn.addEventListener('click', ()=>{
+    auth.createUserWithEmailAndPassword(email.value,password.value)
+      .then(res=>alert('Registered! Login now'))
+      .catch(err=>alert(err.message));
+  });
+
+  // 🔹 Login
+  loginBtn.addEventListener('click', ()=>{
+    auth.signInWithEmailAndPassword(email.value,password.value)
+      .then(res=>{
+        currentUser = res.user;
+        status.textContent = currentUser.email + ' is Online';
+        // Update online status in DB
+        db.ref('status/'+currentUser.uid).set('online');
+        db.ref('status/'+currentUser.uid).onDisconnect().set('offline');
+        loadMessages();
+      })
+      .catch(err=>alert(err.message));
+  });
+
+  // 🔹 Send message
+  sendBtn.addEventListener('click', ()=>{
+    if(!currentUser) return alert('Login first!');
+    const msg = msgInput.value.trim();
+    if(msg==='') return;
+    const newMsgRef = db.ref('messages').push();
+    newMsgRef.set({
+      text: msg,
+      uid: currentUser.uid,
+      email: currentUser.email,
+      timestamp: Date.now()
+    });
+    msgInput.value='';
+  });
+
+  // 🔹 Load messages & realtime updates
+  function loadMessages(){
+    db.ref('messages').on('value', snapshot=>{
+      messagesDiv.innerHTML='';
+      snapshot.forEach(child=>{
+        const data = child.val();
+        const div = document.createElement('div');
+        div.className='msg';
+        div.innerHTML = `<b>${data.email}:</b> ${data.text}`;
+        // Add delete button if message belongs to current user
+        if(currentUser && data.uid===currentUser.uid){
+          const delBtn = document.createElement('span');
+          delBtn.className='deleteBtn';
+          delBtn.textContent='Delete';
+          delBtn.onclick=()=>{ db.ref('messages/'+child.key).remove(); };
+          div.appendChild(delBtn);
+        }
+        messagesDiv.appendChild(div);
+      });
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+  }
+
+  // 🔹 Display online/offline status of all users
+  const statusDiv = document.createElement('div');
+  document.body.insertBefore(statusDiv, messagesDiv);
+  db.ref('status').on('value', snapshot=>{
+    let onlineList = '';
+    snapshot.forEach(child=>{
+      onlineList += child.val() === 'online' ? `${child.key} Online | ` : `${child.key} Offline | `;
+    });
+    statusDiv.textContent = 'Users Status: '+onlineList;
+  });
+
+</script>
+</body>
+</html>
