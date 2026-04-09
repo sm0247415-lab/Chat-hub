@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<style>
+:root{
+--bg:#e5ddd5;
+--header:#075e54;
+--me:#dcf8c6;
+--other:#fff;
+}
+
+body{margin:0;background:var(--bg);font-family:Arial;}
+
+#header{
+background:var(--header);
+color:#fff;
+padding:10px;
+display:flex;
+justify-content:space-between;
+}
+
+#messages{height:80vh;overflow:auto;padding:10px;}
+
+.msg{
+max-width:70%;
+padding:10px;
+border-radius:10px;
+margin:5px;
+position:relative;
+}
+
+.me{background:var(--me);margin-left:auto;}
+.other{background:var(--other);margin-right:auto;}
+
+.delete{
+color:red;
+font-size:10px;
+position:absolute;
+bottom:2px;
+right:5px;
+cursor:pointer;
+}
+
+#input{
+display:flex;
+padding:10px;
+background:#fff;
+}
+
+#input input{
+flex:1;
+padding:10px;
+border-radius:20px;
+border:1px solid #ccc;
+}
+
+#input button{
+margin-left:5px;
+padding:10px;
+border:none;
+background:#25d366;
+color:#fff;
+border-radius:50%;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="header">
+<span id="name">User</span>
+<div>
+<button onclick="changeName()">Name</button>
+<button id="themeBtn">Theme</button>
+</div>
+</div>
+
+<div id="messages"></div>
+
+<div id="input">
+<input id="msg" placeholder="Type message">
+<button onclick="send()">➤</button>
+</div>
+
+<script>
+const firebaseConfig = {
+apiKey: "AIzaSyCLWXpSE2ZB8WTVakqp7eO3G1bLdz_P15w",
+authDomain: "mini-90221.firebaseapp.com",
+databaseURL: "https://mini-90221-default-rtdb.asia-southeast1.firebasedatabase.app",
+projectId: "mini-90221",
+storageBucket: "mini-90221.appspot.com",
+messagingSenderId: "333962320072",
+appId: "1:333962320072:web:8f26318d530c9135b9edfd"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+let user;
+let name = localStorage.getItem("name") || "User";
+document.getElementById("name").innerText = name;
+
+// 🔹 Login check
+auth.onAuthStateChanged(u=>{
+if(!u) location='login.html';
+user=u;
+load();
+});
+
+// 🔹 Send message
+function send(){
+let text = msg.value.trim();
+if(!text) return;
+
+db.ref("msg").push({
+text,
+uid:user.uid,
+name:name
+});
+msg.value='';
+}
+
+// 🔹 Load messages
+function load(){
+db.ref("msg").on("value",snap=>{
+messages.innerHTML='';
+snap.forEach(d=>{
+let m=d.val();
+
+let div=document.createElement("div");
+div.className="msg "+(m.uid==user.uid?"me":"other");
+
+div.innerHTML = `<b>${m.name}</b><br>${m.text}`;
+
+if(m.uid==user.uid){
+let del=document.createElement("span");
+del.innerText="Delete";
+del.className="delete";
+del.onclick=()=>db.ref("msg/"+d.key).remove();
+div.appendChild(del);
+}
+
+messages.appendChild(div);
+});
+messages.scrollTop=messages.scrollHeight;
+});
+}
+
+// 🔹 Name change
+function changeName(){
+let n=prompt("Enter name:");
+if(n){
+localStorage.setItem("name",n);
+location.reload();
+}
+}
+
+// 🔹 Theme system
+const themes=[
+["#e5ddd5","#075e54","#dcf8c6","#fff"],
+["#111","#222","#056162","#262d31"],
+["#1e1e2f","#4a00e0","#8e2de2","#2c2c54"]
+];
+
+let t=localStorage.getItem("theme")||0;
+
+function applyTheme(i){
+document.documentElement.style.setProperty('--bg',themes[i][0]);
+document.documentElement.style.setProperty('--header',themes[i][1]);
+document.documentElement.style.setProperty('--me',themes[i][2]);
+document.documentElement.style.setProperty('--other',themes[i][3]);
+localStorage.setItem("theme",i);
+}
+
+applyTheme(t);
+
+themeBtn.onclick=()=>{
+t=(parseInt(t)+1)%themes.length;
+applyTheme(t);
+};
+</script>
+
+</body>
+</html>
