@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shadow Chat</title>
+<style>
+body { font-family:sans-serif; background:#121212; color:white; display:flex; flex-direction:column; align-items:center; }
+h2 { margin-top:20px; }
+.chat-box { width:90%; max-width:500px; margin-top:20px; border:1px solid #333; border-radius:12px; padding:10px; height:400px; overflow-y:auto; background:#1e1e1e; }
+.msg-left { text-align:left; margin:5px 0; }
+.msg-right { text-align:right; margin:5px 0; }
+.bubble { display:inline-block; padding:8px 12px; border-radius:12px; max-width:70%; }
+.left { background:#333; color:white; border-top-left-radius:0; }
+.right { background:#00bfff; color:white; border-top-right-radius:0; }
+input { width:80%; padding:10px; margin-top:10px; border-radius:6px; border:none; }
+button { padding:10px 20px; margin-top:10px; background:#00bfff; border:none; border-radius:6px; cursor:pointer; color:white; }
+</style>
+</head>
+<body>
+
+<h2>Welcome <span id="userName"></span></h2>
+<div class="chat-box" id="chatBox"></div>
+<input type="text" id="msgInput" placeholder="Type a message..." />
+<button onclick="sendMsg()">Send</button>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<script>
+// Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyCLWXpSE2ZB8WTVakqp7eO3G1bLdz_P15w",
+  authDomain: "mini-90221.firebaseapp.com",
+  databaseURL: "https://mini-90221-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "mini-90221",
+  storageBucket: "mini-90221.firebasestorage.app",
+  messagingSenderId: "333962320072",
+  appId: "1:333962320072:web:8f26318d530c9135b9edfd"
+};
+firebase.initializeApp(firebaseConfig);
+let db = firebase.database();
+
+let user = localStorage.getItem('user');
+if(!user) window.location.href="index.html";
+document.getElementById('userName').innerText = user;
+
+let chatBox = document.getElementById('chatBox');
+
+function renderMessage(data) {
+    let p = document.createElement('p');
+    p.className = data.user === user ? 'msg-right' : 'msg-left';
+    p.innerHTML = `<span class="bubble ${data.user===user?'right':'left'}"><b>${data.user}:</b> ${data.text}</span>`;
+    chatBox.appendChild(p);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// Listen for new messages in Firebase
+db.ref('messages').on('child_added', snapshot => {
+    renderMessage(snapshot.val());
+});
+
+function sendMsg() {
+    let msgText = document.getElementById('msgInput').value.trim();
+    if(msgText==="") return;
+    db.ref('messages').push({user: user, text: msgText});
+    document.getElementById('msgInput').value="";
+}
+</script>
+
+</body>
+</html>
