@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login / Register</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<style>
+  body { font-family: Arial; padding:20px; background:#f9f9f9; }
+  h2 { text-align:center; }
+  form { background:#fff; padding:15px; border-radius:10px; max-width:350px; margin:auto; box-shadow:0 0 10px rgba(0,0,0,0.1);}
+  input, button { padding:10px; width:90%; margin:5px 0; border-radius:5px; border:1px solid #ccc; }
+  button { cursor:pointer; background:#0b93f6; color:#fff; border:none; }
+</style>
+</head>
+<body>
+
+<h2>Login / Register</h2>
+
+<form id="registerForm">
+  <input type="email" id="regEmail" placeholder="Email" required><br>
+  <input type="password" id="regPassword" placeholder="Password" required><br>
+  <input type="file" id="regProfilePic" accept="image/*"><br>
+  <button type="submit">Register</button>
+</form>
+
+<hr>
+
+<form id="loginForm">
+  <input type="email" id="loginEmail" placeholder="Email" required><br>
+  <input type="password" id="loginPassword" placeholder="Password" required><br>
+  <button type="submit">Login</button>
+</form>
+
+<script>
+  // 🔹 Firebase Config
+  const firebaseConfig = {
+    apiKey: "AIzaSyCLWXpSE2ZB8WTVakqp7eO3G1bLdz_P15w",
+    authDomain: "mini-90221.firebaseapp.com",
+    databaseURL: "https://mini-90221-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "mini-90221",
+    storageBucket: "mini-90221.appspot.com",
+    messagingSenderId: "333962320072",
+    appId: "1:333962320072:web:8f26318d530c9135b9edfd"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const storage = firebase.storage();
+
+  const registerForm = document.getElementById('registerForm');
+  const loginForm = document.getElementById('loginForm');
+
+  // 🔹 Register
+  registerForm.addEventListener('submit', async e=>{
+    e.preventDefault();
+    const email = document.getElementById('regEmail').value;
+    const password = document.getElementById('regPassword').value;
+    const file = document.getElementById('regProfilePic').files[0];
+
+    try{
+      const res = await auth.createUserWithEmailAndPassword(email,password);
+      const user = res.user;
+      if(file){
+        const ref = storage.ref('profilePics/'+user.uid+'.jpg');
+        await ref.put(file);
+        const url = await ref.getDownloadURL();
+        await user.updateProfile({photoURL:url});
+      }
+      alert('Registered! Login now.');
+      registerForm.reset();
+    } catch(err){ alert(err.message); }
+  });
+
+  // 🔹 Login
+  loginForm.addEventListener('submit', async e=>{
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    try{
+      const res = await auth.signInWithEmailAndPassword(email,password);
+      const user = res.user;
+      // redirect to chat page
+      window.location = 'chat.html';
+    } catch(err){ alert(err.message); }
+  });
+
+</script>
+</body>
+  </html>
