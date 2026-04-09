@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MyChat Ultra Pro</title>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+<style>
+body{margin:0;font-family:sans-serif;background:#0f172a;color:white;}
+.topbar{background:#075E54;padding:15px;text-align:center;}
+#chat{height:60vh;overflow:auto;padding:10px;}
+.msg{padding:10px;margin:5px;border-radius:10px;max-width:70%;}
+.me{background:#25D366;margin-left:auto;}
+.other{background:#1e293b;}
+.bottom{display:flex;padding:10px;background:#1e293b;}
+input{padding:10px;border:none;border-radius:10px;margin:5px;}
+button{padding:10px;background:#25D366;border:none;color:white;border-radius:10px;}
+img{max-width:100%;border-radius:10px;}
+#loginBox,#profileBox{text-align:center;padding:20px;}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="loginBox">
+  <h2>Login 📱</h2>
+  <input id="phone" placeholder="+91XXXXXXXXXX"><br>
+  <div id="recaptcha"></div>
+  <button onclick="sendOTP()">Send OTP</button><br><br>
+  <input id="otp" placeholder="OTP"><br>
+  <button onclick="verifyOTP()">Verify</button>
+</div>
+
+<!-- PROFILE -->
+<div id="profileBox" style="display:none;">
+  <h2>Set Profile</h2>
+  <input id="nameInput" placeholder="Name"><br>
+  <input type="file" id="dpInput"><br>
+  <button onclick="saveProfile()">Save</button>
+</div>
+
+<!-- CHAT -->
+<div id="app" style="display:none;">
+  <div class="topbar">MyChat Ultra 💬</div>
+  <div id="users"></div>
+  <div id="chat"></div>
+
+  <div class="bottom">
+    <input id="room" placeholder="Room ID">
+    <input id="msg" placeholder="Message">
+    <input type="file" id="img">
+    <button onclick="send()">Send</button>
+  </div>
+</div>
+
+<script>
+// 🔥 Firebase Config (APNA DALNA)
+const firebaseConfig = {
+  apiKey: "AIzaSyCLWXpSE2ZB8WTVakqp7eO3G1bLdz_P15w",
+  authDomain: "mini-90221.firebaseapp.com",
+  databaseURL: "https://mini-90221-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "mini-90221",
+  storageBucket: "mini-90221.firebasestorage.app"
+};
+firebase.initializeApp(firebaseConfig);
+
+const db = firebase.database();
+const storage = firebase.storage();
+
+// 🔐 LOGIN SYSTEM
+let confirmationResult;
+
+window.onload = () => {
+  window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha');
+};
+
+function sendOTP(){
+  let phone = phone.value;
+  firebase.auth().signInWithPhoneNumber(phone, recaptchaVerifier)
+  .then(res=>{
+    confirmationResult = res;
+    alert("OTP Sent");
+  });
+}
+
+function verifyOTP(){
+  confirmationResult.confirm(otp.value)
+  .then(res=>{
+    localStorage.setItem("user", res.user.phoneNumber);
+    loginBox.style.display="none";
+    profileBox.style.display="block";
+  });
+}
+
+// 👤 PROFILE
+function saveProfile(){
+  let name = nameInput.value;
+  let file = dpInput.files[0];
+
+  let reader = new FileReader();
+  reader.onload = e=>{
+    localStorage.setItem("name", name);
+    localStorage.setItem("dp", e.target.result);
+
+    profileBox.style.display="none";
+    app.style.display="block";
+    startApp();
+  };
+  reader.readAsDataURL(file);
+}
+
+// 🚀 START APP
+function startApp(){
+  let name = localStorage.getItem("name");
+  let userId = "user_"+Math.random();
+
+  db.ref("online/"+userId).set(name);
+  db.ref("online/"+userId).onDisconnect().remove();
+
+  db.ref("online").on("value", snap=>{
+    let list=[];
+    snap.forEach(d=>list.push(d.val()));
+    users.innerText="Online: "+list.join(", ");
+  });
+
+  setInterval(loadRoom,1000);
+}
+
+// 💬 SEND
+function send(){
+  let roomId = room.value;
+  let text = msg.value;
+  let file = img.files[0];
+
+  let ref = db.ref("rooms/"+roomId);
+
+  if(file){
+    let sref = storage.ref("img/"+Date.now());
+    sref.put(file).then(()=>{
+      sref.getDownloadURL().then(url=>{
+        ref.push({name:localStorage.getItem("name"),img:url});
+      });
+    });
+  } else {
+    ref.push({name:localStorage.getItem("name"),msg:text});
+  }
+
+  msg.value="";
+  img.value="";
+}
+
+// 📥 RECEIVE
+let currentRoom="";
+
+function loadRoom(){
+  let roomId = room.value;
+  if(roomId && roomId!==currentRoom){
+    currentRoom=roomId;
+    chat.innerHTML="";
+
+    db.ref("rooms/"+roomId).off();
+    db.ref("rooms/"+roomId).on("child_added", data=>{
+      let d=data.val();
+      let div=document.createElement("div");
+      div.classList.add("msg");
+
+      if(d.name===localStorage.getItem("name")) div.classList.add("me");
+      else div.classList.add("other");
+
+      if(d.msg) div.innerText=d.name+": "+d.msg;
+
+      if(d.img){
+        let i=document.createElement("img");
+        i.src=d.img;
+        div.appendChild(i);
+      }
+
+      chat.appendChild(div);
+      chat.scrollTop=999999;
+    });
+  }
+}
+</script>
+
+</body>
+</html>
